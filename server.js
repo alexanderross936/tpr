@@ -6,14 +6,12 @@ const { check, validationResult } = require("express-validator");
 var mongoose = require('mongoose');
 var mongoDB = 'mongodb://127.0.0.1/one_database';
 const jwt = require('jsonwebtoken');
-require('./models/Ingredient')
-require('./models/Recipe')
 require('./models/User')
-require('./config/default.json')
-const auth = require('./frontend/src/middleware/auth')
+const auth = require('./auth')
 const User = require('./models/User');
-const Recipe = require('./models/Recipe');
-const Ingredient = require('./models/Ingredient');
+const Post = require('./models/Post');
+const Comment = require('./models/Comment');
+require('./config/default.json')
 mongoose.connect(mongoDB, { useNewUrlParser: true });
 
 var db = mongoose.connection;
@@ -24,8 +22,8 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded());
-app.use(express.static())
+// app.use(express.urlencoded());
+// app.use(express.static())
 
 app.get('/user', auth, async(req, res) => {
     try {
@@ -162,3 +160,77 @@ jwt.sign(payload,
 
 })
 
+app.post('/add_post', auth, (req, res) => {
+    let post = new Post(req.body);
+    post.save().then(post => {
+        res.status(200).json({'post': 'Post added successfully'});
+    }).catch(err => {
+        res.status(400).send('Adding failed');
+    });
+});
+
+app.put('/comment', auth, (req, res) => {
+    const comment = {
+        text: req.body.text,
+        postedBy: req.user
+    }
+const id = req.body.postId
+
+    Post.findByIdAndUpdate({_id: id}, {
+        $push: {Comments: comment}
+},
+function(error, success){
+    if(error){
+        res.send(error)
+    } else {
+        res.send(success)
+    }
+})
+// , {
+//     new:true
+// })
+// .populate("comments:postedby", "_id name")
+// .exec((err, result) => {
+//     if(err){
+//         return res.status(422).json({error:err})
+//     }else{
+//         res.json(result)
+//     }
+})
+
+
+app.get('/users', auth, (req, res) => {
+    Users.find({}, function(err, users){
+        Usersmap = {};
+
+        users.forEach(function(user){
+            UsersMap[user._id] = user;
+        });
+
+        res.send(UsersMap)
+    })
+
+})
+
+app.get('/posts', (req, res) => {
+   Post.find({}, function(err, posts){
+       let PostMap = {};
+
+       posts.forEach(function(post){
+       PostMap[post._id] = post;            
+       });
+
+   res.send(PostMap);
+   });
+});
+
+app.get('/post/:id', (req, res) => {
+    let id = req.params.id;
+    Post.findById(id, function(err, post) {
+        res.json(post);
+    });
+})
+
+app.listen(process.env.PORT || 4000, () => {
+    console.log('App listening on port 4000')
+})
